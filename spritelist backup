@@ -1,0 +1,24 @@
+#pragma once
+#include <SFML/Graphics.hpp>
+
+// * grid size in object sheet is 204 x 187 about
+
+struct intRectAndName { sf::IntRect rect; std::string name; };
+std::vector<intRectAndName> objPointHolder;
+
+sf::IntRect horizontal_wire_2_way(1, 5, 204, 183);
+sf::IntRect wire_4_way(1 + 204 + 2, 2, 204 - 1, 183 + 3);
+sf::IntRect bent_wire_2_way(1 + 204 + 204 + 3, 5, 204 - 1, 183);
+sf::IntRect vertical_wire_2_way (1 + 204 + 204 + 204 + 5, 2, 204 - 1, 183 + 2);
+sf::IntRect power_extender(1, 5 + 183 + 2, 204 - 1, 183);
+sf::IntRect power_block(1 + 204 + 1, 5 + 183 + 2, 204 - 1, 183);
+sf::IntRect power_detector(1 + 204 + 204 + 1 + 2, 5 + 183 + 2, 204 - 1, 183);
+sf::IntRect power_dispenser (1 + 204 + 204 + 1 + 204 + 3, 5 + 183 + 2, 204 - 1, 183);
+sf::IntRect neutral_winning_block (1, 204 + 204 - 10, 204 - 2, 183 - 30);
+sf::IntRect activated_winning_block(1 + 204 + 3, 204 + 204 - 10, 204 - 2, 183 - 30);
+sf::IntRect lever_on (1 + 204 + 204 + 3, 204 + 204 - 10, 204 - 2, 183 - 30);
+sf::IntRect lever_off (1 + 204 + 204 + 204 + 5, 204 + 204 - 10, 204 - 2, 183 - 30);
+sf::IntRect normal_block_pusher_unpowered (1, 204 + 204 + 204, 204 - 2, 183 - 50);
+sf::IntRect normal_block_pusher_powered (1 + 204 + 3, 204 + 204 + 204, 204 - 2, 183 - 50);
+sf::IntRect sticky_block_pusher_unpowered (1 + 204 + 204 + 3, 204 + 204 + 204, 204 - 2, 183 - 50);
+sf::IntRect sticky_block_pusher_powered (1 + 204 + 204 + 204 + 5, 204 + 204 + 204, 204 - 2, 183 - 50);
