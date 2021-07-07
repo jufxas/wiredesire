@@ -87,6 +87,9 @@ public:
         // ? not sure if need to do this for the rest of the variables,, probably
         Grid::eachRectWidth = eachRectWidth; 
         Grid::eachRectHeight = eachRectHeight; 
+        Grid::gridRows = gridRows; 
+        Grid::gridColumns = gridColumns; 
+        Grid::gridMatrix = gridMatrix; 
 
         float xPos = drawStartingPoint.X; 
         float yPos = drawStartingPoint.Y; 
@@ -125,6 +128,13 @@ public:
             eachRectWidth / gridRectangleHolder[n].sprite.getLocalBounds().width, 
             eachRectHeight / gridRectangleHolder[n].sprite.getLocalBounds().height
         ));
+        // ! i < 18 because that's the size of objpointholder. if objpointholder changes pls update this value. 
+        for (int i = 0; i < 18; i++) {
+            if (objPointHolder[i].rect == intRectChange) {
+                gridMatrix[n] = i; 
+                return; 
+            }
+        }
     }
     void rotateSprite (int n, float degrees) {
         gridRectangleHolder[n].sprite.setOrigin(
@@ -134,6 +144,110 @@ public:
 
             gridRectangleHolder[n].sprite.setRotation(degrees); 
             gridRectangleHolder[n].sprite.move(sf::Vector2f(eachRectWidth / 2, eachRectHeight / 2)); // ! LIKELY SOURCE OF FUTURE BUG 
+    }
+
+    void fixWires() {
+        for (int i = 0; i < gridRectangleHolder.size(); i++) {
+            bool up = true, down = true , left = true , right = true; // * identifiers for if there's a block up, down, left, or right
+            if (gridMatrix[i] == 1) { // 1 = wire 4 way
+                if (i <= (gridRows - 1)) {
+                    // * case making it so up is false 
+                    // * it's at the roof 
+                    up = false; 
+                } else if (i >= (gridRows * (gridColumns - 1))) {
+                    // * it's at the bottom 
+                    // * down is false 
+                    down = false;
+                }
+                // * 42 to 48 = bottom is false 
+                // * if it's
+                // * (0 or 6), (7 or 13), (14 or 20), (21 or 27), (28 or 34), (35 or 41), (42 to 48) then left and right = false  
+                if (i % gridRows == 0) {
+                    // * it's at the left 
+                    // * left is false 
+                    left = false; 
+                }
+                else if ( (i+1) % (gridRows) == 0) { // ! may be source of a bug idk yet 
+                    // * it's at the right
+                    // * right is false 
+                    right = false; 
+                }
+                
+
+                // * making sure it's not at the top or bottom so seg faults are prevented 
+                if (up) {
+                    if (gridMatrix[i - gridRows] == 16) {
+                        // * 16 means it's empty 
+                        up = false; 
+                    }
+                }
+                if (down) {
+                    if (gridMatrix[i + gridRows] == 16) {
+                        down = false;
+                    }
+                }
+
+                if (left) {
+                    if (gridMatrix[i - 1] == 16) {
+                        left = false; 
+                    }
+                }
+                if (right) {
+                    if (gridMatrix[i + 1] == 16) {
+                        right = false; 
+                       
+                    }
+                }
+
+                int howmany= 0; 
+
+                if (up) howmany++; 
+                if (down) howmany++; 
+                if (left) howmany++; 
+                if (right) howmany++; 
+
+                std::cout << i << " UP: " << up << " DOWN: " << down << " LEFT: " << left << " RIGHT: " << right << " H: " << howmany << std::endl; 
+
+                if (up || down) {
+                    if (!left && !right) {
+                        changeIntRectOfSprite(i, vertical_wire_2_way); 
+                    }
+                } 
+                if (left || right) {
+                    if (!up && !down) changeIntRectOfSprite(i, horizontal_wire_2_way); 
+                } 
+                
+                 if (left && up && howmany == 2) {
+                    changeIntRectOfSprite(i, bent_wire_2_way);
+                    rotateSprite(i, 90); 
+                } 
+                else if (right && down && howmany == 2) {
+                    changeIntRectOfSprite(i, bent_wire_2_way);
+                    rotateSprite(i, 270); 
+                } else if (left && down && howmany == 2) {
+                    changeIntRectOfSprite(i, bent_wire_2_way); 
+                    // rotateSprite(i, 270); 
+                } else if (right && up && howmany == 2) {
+                    rotateSprite(i, 180); 
+                    changeIntRectOfSprite(i, bent_wire_2_way); 
+                }
+                
+                if (howmany == 3) {
+                    changeIntRectOfSprite(i, wire_3_way); 
+                    if (down && right && up) {
+                        rotateSprite(i, 90);
+                    } else if (right && up && left) {
+                        rotateSprite(i, 180);
+                    } else if (up && right && down) {
+                        rotateSprite(i, 270); 
+                    } else if (up && left && down) {
+                        rotateSprite(i, 90);
+                    }
+
+                }
+
+            }
+        }
     }
     
 };
@@ -214,13 +328,13 @@ public:
 
             // ! HAS to align with rows x columns put into grid.describegrid(...)
             std::vector<int> gridMatrix = {
-                11, 01, 01, 01, 16, 16, 16,
-                16, 16, 16, 01, 04, 01, 16,
+                01, 01, 01, 01, 16, 16, 01,
+                16, 16, 01, 01, 04, 01, 01,
                 16, 16, 16, 16, 16, 16, 16,
-                16, 16, 16, 16, 16, 16, 16,
-                16, 01, 01, 01, 16, 16, 16,
-                16, 16, 16, 16, 16, 16, 16,
-                16, 16, 16, 16, 16, 16, 16,
+                16, 16, 16, 01, 16, 16, 16,
+                16, 01, 01, 01, 01, 01, 16,
+                16, 16, 16, 01, 16, 01, 16,
+                01, 01, 01, 01, 16, 16, 01,
             };
 
             grid.describeGrid(7, 7, 150, 150, {80, 80}, gridMatrix); 
@@ -231,6 +345,8 @@ public:
             // * MAY NOT BE A BAD IDEA TO DO IT LIKE THAT DOE 
             // * SOMEHOW IT WORKS PRETTY WELL FOR ALL THE OBJECTS THAT'D BE ROTATED 
             // * SO U HAVE TO SET ORIGIN TO LOCAL BOUNDS /2, ROTATE, THEN MOVE BY 75x75 
+
+            grid.fixWires(); 
 
         }
     }
