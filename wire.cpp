@@ -76,6 +76,9 @@ struct rectangleForGrid {
 };
 
 class Grid {
+private: 
+    int leverIndex = -1; 
+    bool leverState = false; // false = off, true = on 
 public: 
     std::vector<rectangleForGrid> gridRectangleHolder; 
     int gridRows, gridColumns; 
@@ -102,6 +105,7 @@ public:
         rect.setOutlineThickness(1);
 
         for (int i = 0; i < gridRows * gridColumns; i++) {
+            if (gridMatrix[i] == 11) leverIndex = i;  
              // ! Put in sprite position and scaling  (given w / local bound w) 
              sprite.setTextureRect(  objPointHolder[ gridMatrix[i] ].rect ); 
 
@@ -132,7 +136,7 @@ public:
         for (int i = 0; i < 18; i++) {
             if (objPointHolder[i].rect == intRectChange) {
                 gridMatrix[n] = i; 
-                return; 
+                return;  
             }
         }
     }
@@ -148,6 +152,12 @@ public:
 
     void fixWires() {
         for (int i = 0; i < gridRectangleHolder.size(); i++) {
+            // * How the logic works because my variable names are kinda bad 
+            // * Each cell if it has a wire or repeaeter has to look up, down, left, right if there is anything that isn't empty 
+            // * We first have to make sure we can actually access it to prevent seg faults 
+            // * We also check left and right to make sure we're not at the most left/right so we don't have situations where the previous/next cell fits the critera (of not being empty) and then cell's sprite is rotated as if it was when visually it isn't 
+            // * Sprites are rotated/changed accordingly based on what's up, down, left, right of them 
+
             bool up = true, down = true , left = true , right = true; // * identifiers for if there's a block up, down, left, or right
             if (gridMatrix[i] == 1) { // 1 = wire 4 way
                 if (i <= (gridRows - 1)) {
@@ -199,37 +209,51 @@ public:
                     }
                 }
 
+                // * Breakoff if (Can assume we don't need to ask anymore questions so the compiler may now carry on to greener pastures like if i == 4) 
+                // ! also maybe sources of bugs. man. if bugs, investigate every continue statement in this code 
+                if (!up && !down && !left && !right) continue; 
+                
+
                 int howmany= 0; 
 
                 if (up) howmany++; 
                 if (down) howmany++; 
                 if (left) howmany++; 
                 if (right) howmany++; 
+                // * yes ik bad variable name but all u need to know is that if statements just ask a bit less 
 
-                std::cout << i << " UP: " << up << " DOWN: " << down << " LEFT: " << left << " RIGHT: " << right << " H: " << howmany << std::endl; 
+                // std::cout << i << " UP: " << up << " DOWN: " << down << " LEFT: " << left << " RIGHT: " << right << " H: " << howmany << std::endl; 
 
                 if (up || down) {
                     if (!left && !right) {
                         changeIntRectOfSprite(i, vertical_wire_2_way); 
+                        continue; 
                     }
                 } 
                 if (left || right) {
-                    if (!up && !down) changeIntRectOfSprite(i, horizontal_wire_2_way); 
+                    if (!up && !down) {
+                        changeIntRectOfSprite(i, horizontal_wire_2_way); 
+                        continue; 
+                    }
                 } 
                 
                  if (left && up && howmany == 2) {
                     changeIntRectOfSprite(i, bent_wire_2_way);
                     rotateSprite(i, 90); 
+                    continue; 
                 } 
                 else if (right && down && howmany == 2) {
                     changeIntRectOfSprite(i, bent_wire_2_way);
                     rotateSprite(i, 270); 
+                    continue; 
                 } else if (left && down && howmany == 2) {
                     changeIntRectOfSprite(i, bent_wire_2_way); 
                     // rotateSprite(i, 270); 
+                    continue; 
                 } else if (right && up && howmany == 2) {
                     rotateSprite(i, 180); 
                     changeIntRectOfSprite(i, bent_wire_2_way); 
+                    continue; 
                 }
                 
                 if (howmany == 3) {
@@ -246,10 +270,78 @@ public:
 
                 }
 
+            } else if (gridMatrix[i] == 4) { // power extender is 4 
+                bool up = true, down = true, left = true, right = true; 
+
+                // * copy pasted logic to make sure seg faults dont happen 
+                if (i <= (gridRows - 1)) {
+                    up = false; 
+                } else if (i >= (gridRows * (gridColumns - 1))) {
+                    down = false;
+                }
+
+                if (i % gridRows == 0) {
+                    left = false; 
+                }
+                else if ( (i+1) % (gridRows) == 0) { // ! may be source of a bug idk yet 
+                    right = false; 
+                }
+
+                // * more copy paste  
+                if (up) {
+                    if (gridMatrix[i - gridRows] == 16) {
+                        // * 16 means it's empty 
+                        up = false; 
+                    }
+                }
+                if (down) {
+                    if (gridMatrix[i + gridRows] == 16) {
+                        down = false;
+                    }
+                }
+
+                if (left) {
+                    if (gridMatrix[i - 1] == 16) {
+                        left = false; 
+                    }
+                }
+                if (right) {
+                    if (gridMatrix[i + 1] == 16) {
+                        right = false; 
+                       
+                    }
+                }
+
+                // ? no idea if this is enough logic lol 
+                if (up || down) {
+                    rotateSprite(i, 90); 
+                }
+
             }
         }
     }
     
+    bool checkIfLeverClick(sf::Vector2f mousePosView) {
+        return gridRectangleHolder[leverIndex].rect.getGlobalBounds().contains(mousePosView); 
+    }
+
+    // check for mouse click 
+    
+    void toggleLever() {
+        if (!leverState) {
+            changeIntRectOfSprite(leverIndex, lever_on);
+            leverState = true; 
+        } else if (leverState) {
+            changeIntRectOfSprite(leverIndex, lever_off);
+            leverState = !true; 
+        }
+    }
+};
+class Electricity {
+private:
+        
+public:
+
 };
 
 class Game {
@@ -263,6 +355,7 @@ private:
     bool mouseHeld = false;
     sf::Vector2i mousePosWindow; /// vector2i = 2 integers
     sf::Vector2f mousePosView;
+
 
     std::vector<EntityandName<sf::Text>> textHolder;
     std::vector<EntityandName<sf::RectangleShape>> rectangleHolder; 
@@ -298,6 +391,7 @@ public:
         objPointHolder[16] = {empty, "empty"}; 
         objPointHolder[17] = {wire_3_way, "wire_3_way"}; 
         // * init objPointerHolder
+
     }
     bool isRunning() {
         return window->isOpen(); 
@@ -328,25 +422,18 @@ public:
 
             // ! HAS to align with rows x columns put into grid.describegrid(...)
             std::vector<int> gridMatrix = {
-                01, 01, 01, 01, 16, 16, 01,
-                16, 16, 01, 01, 04, 01, 01,
                 16, 16, 16, 16, 16, 16, 16,
-                16, 16, 16, 01, 16, 16, 16,
-                16, 01, 01, 01, 01, 01, 16,
-                16, 16, 16, 01, 16, 01, 16,
-                01, 01, 01, 01, 16, 16, 01,
+                16, 16, 16, 16, 16, 16, 16,
+                16, 11, 01, 01, 01,  8, 16,
+                16, 16, 16, 16, 16, 16, 16,
+                16, 16, 16, 16, 16, 16, 16,
+                16, 16, 16, 16, 16, 16, 16,
+                16, 16, 16, 16, 16, 16, 16,
             };
 
-            grid.describeGrid(7, 7, 150, 150, {80, 80}, gridMatrix); 
-            grid.changeIntRectOfSprite(20, power_dispenser);
-            grid.rotateSprite(20, 180); 
-            // * MANUALLY FOUND OUT U HAD TO MOVE "sticky_block_pusher_powered" BY 75, 75 TO GET IT BACK IN POSITION
-            // * 75,75 MIGHT BE RECTWIDTH/2, RECTHEIGHT/2  
-            // * MAY NOT BE A BAD IDEA TO DO IT LIKE THAT DOE 
-            // * SOMEHOW IT WORKS PRETTY WELL FOR ALL THE OBJECTS THAT'D BE ROTATED 
-            // * SO U HAVE TO SET ORIGIN TO LOCAL BOUNDS /2, ROTATE, THEN MOVE BY 75x75 
+            grid.describeGrid(7, 7, 150, 150, {80, 80}, gridMatrix);
 
-            grid.fixWires(); 
+            grid.fixWires();
 
         }
     }
@@ -398,9 +485,24 @@ public:
             } else if (mouseHeld) {
                 mouseHeld = false; 
             }
+            // ! move debug state to be later on in the else-if chain 
+        } else if (GAME_STATE == debug) {
+            if (sf::Mouse::isButtonPressed(sf::Mouse::Left)) {
+                if (!mouseHeld) {
+                    if (grid.checkIfLeverClick(mousePosView)) {
+                        grid.toggleLever(); 
 
-        } 
+                        mouseHeld = true; 
+                    }
+                }
+
+            } else if (!sf::Mouse::isButtonPressed(sf::Mouse::Left)) {
+                mouseHeld = false; 
+            }
+            
+        }
     }
+
     void makeText(std::string textName, std::string fontDir, float charSize, RGB fillColor, std::string textPrinted, float x, float y) {
         sf::Text text;
         font.loadFromFile("./graphics/fonts/Orbitron/Orbitron-VariableFont_wght.ttf");
