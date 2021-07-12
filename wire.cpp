@@ -75,9 +75,20 @@ struct rectangleForGrid {
     sf::Sprite sprite; 
 };
 
+struct Direction {
+    bool up, down, left, right; 
+}; 
+
+struct ElectricityOrb {
+    sf::CircleShape ElectricityOrb; 
+    std::vector<int> cellsTravelled; 
+    float speed; 
+};
+
 class Grid {
 private: 
     int leverIndex = -1; 
+    XY leverPosition = {-1, -1}; // * if correct, it'd be the top left of the cell 
     bool leverState = false; // false = off, true = on 
 public: 
     std::vector<rectangleForGrid> gridRectangleHolder; 
@@ -93,6 +104,7 @@ public:
         Grid::gridRows = gridRows; 
         Grid::gridColumns = gridColumns; 
         Grid::gridMatrix = gridMatrix; 
+        Grid::drawStartingPoint = drawStartingPoint;
 
         float xPos = drawStartingPoint.X; 
         float yPos = drawStartingPoint.Y; 
@@ -105,7 +117,10 @@ public:
         rect.setOutlineThickness(1);
 
         for (int i = 0; i < gridRows * gridColumns; i++) {
-            if (gridMatrix[i] == 11) leverIndex = i;  
+            if (gridMatrix[i] == 11) {
+                leverIndex = i;  
+                leverPosition = {xPos, yPos}; 
+            }
              // ! Put in sprite position and scaling  (given w / local bound w) 
              sprite.setTextureRect(  objPointHolder[ gridMatrix[i] ].rect ); 
 
@@ -150,6 +165,24 @@ public:
             gridRectangleHolder[n].sprite.move(sf::Vector2f(eachRectWidth / 2, eachRectHeight / 2)); // ! LIKELY SOURCE OF FUTURE BUG 
     }
 
+    Direction checkDirection(int index) { // * for preventing seg faults, could be used in fix wires but i dont feel like changing it 
+        Direction direction = {true, true, true, true}; 
+        if (index <= (gridRows - 1)) direction.up = false; 
+        else if (index >= (gridRows * (gridColumns - 1))) direction.down = false;   
+
+        if (index % gridRows == 0) direction.left = false; 
+        else if ( (index+1) % (gridRows) == 0) direction.right = false; 
+        return direction; 
+    }
+    Direction checkForNonEmpty(Direction direction) {
+        if (direction.up) if (gridMatrix[leverIndex - gridRows] == 16) direction.up = false; 
+        if (direction.down) if (gridMatrix[leverIndex + gridRows] == 16) direction.down = false;                    
+        if (direction.left) if (gridMatrix[leverIndex - 1] == 16) direction.left = false; 
+        if (direction.right) if (gridMatrix[leverIndex + 1] == 16) direction.right = false;  
+        return direction; 
+
+    }
+
     void fixWires() {
         for (int i = 0; i < gridRectangleHolder.size(); i++) {
             // * How the logic works because my variable names are kinda bad 
@@ -191,35 +224,16 @@ public:
                         up = false; 
                     }
                 }
-                if (down) {
-                    if (gridMatrix[i + gridRows] == 16) {
-                        down = false;
-                    }
-                }
-
-                if (left) {
-                    if (gridMatrix[i - 1] == 16) {
-                        left = false; 
-                    }
-                }
-                if (right) {
-                    if (gridMatrix[i + 1] == 16) {
-                        right = false; 
+                if (down) if (gridMatrix[i + gridRows] == 16) down = false;                    
+                if (left) if (gridMatrix[i - 1] == 16) left = false; 
+                if (right) if (gridMatrix[i + 1] == 16) right = false; 
                        
-                    }
-                }
-
                 // * Breakoff if (Can assume we don't need to ask anymore questions so the compiler may now carry on to greener pastures like if i == 4) 
                 // ! also maybe sources of bugs. man. if bugs, investigate every continue statement in this code 
                 if (!up && !down && !left && !right) continue; 
-                
-
-                int howmany= 0; 
-
-                if (up) howmany++; 
-                if (down) howmany++; 
-                if (left) howmany++; 
-                if (right) howmany++; 
+        
+                int howmany = 0; 
+                if (up) howmany++; if (down) howmany++; if (left) howmany++; if (right) howmany++; 
                 // * yes ik bad variable name but all u need to know is that if statements just ask a bit less 
 
                 // std::cout << i << " UP: " << up << " DOWN: " << down << " LEFT: " << left << " RIGHT: " << right << " H: " << howmany << std::endl; 
@@ -258,59 +272,27 @@ public:
                 
                 if (howmany == 3) {
                     changeIntRectOfSprite(i, wire_3_way); 
-                    if (down && right && up) {
-                        rotateSprite(i, 90);
-                    } else if (right && up && left) {
-                        rotateSprite(i, 180);
-                    } else if (up && right && down) {
-                        rotateSprite(i, 270); 
-                    } else if (up && left && down) {
-                        rotateSprite(i, 90);
-                    }
-
+                    if (down && right && up) rotateSprite(i, 90);
+                    else if (right && up && left) rotateSprite(i, 180);
+                    else if (up && right && down) rotateSprite(i, 270); 
+                    else if (up && left && down) rotateSprite(i, 90);
                 }
 
             } else if (gridMatrix[i] == 4) { // power extender is 4 
                 bool up = true, down = true, left = true, right = true; 
 
                 // * copy pasted logic to make sure seg faults dont happen 
-                if (i <= (gridRows - 1)) {
-                    up = false; 
-                } else if (i >= (gridRows * (gridColumns - 1))) {
-                    down = false;
-                }
+                if (i <= (gridRows - 1)) up = false; 
+                else if (i >= (gridRows * (gridColumns - 1))) down = false;   
 
-                if (i % gridRows == 0) {
-                    left = false; 
-                }
-                else if ( (i+1) % (gridRows) == 0) { // ! may be source of a bug idk yet 
-                    right = false; 
-                }
-
+                if (i % gridRows == 0) left = false; 
+                else if ( (i+1) % (gridRows) == 0) right = false; 
+                
                 // * more copy paste  
-                if (up) {
-                    if (gridMatrix[i - gridRows] == 16) {
-                        // * 16 means it's empty 
-                        up = false; 
-                    }
-                }
-                if (down) {
-                    if (gridMatrix[i + gridRows] == 16) {
-                        down = false;
-                    }
-                }
-
-                if (left) {
-                    if (gridMatrix[i - 1] == 16) {
-                        left = false; 
-                    }
-                }
-                if (right) {
-                    if (gridMatrix[i + 1] == 16) {
-                        right = false; 
-                       
-                    }
-                }
+                if (up) if (gridMatrix[i - gridRows] == 16) up = false; 
+                if (down) if (gridMatrix[i + gridRows] == 16) down = false;
+                if (left) if (gridMatrix[i - 1] == 16) left = false; 
+                if (right) if (gridMatrix[i + 1] == 16) right = false; 
 
                 // ? no idea if this is enough logic lol 
                 if (up || down) {
@@ -336,12 +318,40 @@ public:
             leverState = !true; 
         }
     }
+
+    void sendElectricityFromLever(std::vector<ElectricityOrb> &electricity, float eSpeed, float radius) {
+        sf::CircleShape circ; 
+        std::vector<int> cellsTravelled; 
+        circ.setPosition(sf::Vector2f(leverPosition.X + eachRectWidth / 2, leverPosition.Y + eachRectHeight / 2)); // adding eachrect... makes it go to the middle of the cell 
+        circ.setFillColor(sf::Color(255, 255, 0)); 
+        circ.setRadius(radius); 
+
+        electricity.push_back({circ, cellsTravelled, eSpeed});
+        Direction direction = checkForNonEmpty(checkDirection(leverIndex)); // tells us where to send the electricity 
+        
+        
+        
+    }
 };
-class Electricity {
+
+
+class PowerSystem {
 private:
         
 public:
+    // * idea: only use one electricity instance and just have vector that handles the deletion of the orbs 
+    std::vector<ElectricityOrb> Electricity; 
+    
+    // create a class of pointer orb objects
+    void createElectricity(XY position, float eSpeed, float radius) {
+        sf::CircleShape circ; 
+        std::vector<int> cellsTravelled; 
+        circ.setPosition(sf::Vector2f(position.X, position.Y)); 
+        circ.setFillColor(sf::Color(255, 255, 0)); 
+        circ.setRadius(radius); 
 
+        Electricity.push_back({circ, cellsTravelled, eSpeed}); 
+    } 
 };
 
 class Game {
@@ -351,11 +361,11 @@ private:
     sf::Text text;
     Timer timer;
     Grid grid; 
+    PowerSystem powerSystem; 
 
     bool mouseHeld = false;
     sf::Vector2i mousePosWindow; /// vector2i = 2 integers
     sf::Vector2f mousePosView;
-
 
     std::vector<EntityandName<sf::Text>> textHolder;
     std::vector<EntityandName<sf::RectangleShape>> rectangleHolder; 
@@ -368,7 +378,12 @@ public:
         window->setFramerateLimit(frameRate);
         if (!objectSheet.loadFromFile("./graphics/modv2ObjSheetinUse.png")) { // ! modified version
             std::cout << "Error loading object sheet png" << std::endl; 
-        } 
+        }
+
+        // * Creating instance of class and deleting it. using pointers and manual allocations is messy to try to avoid  
+        // Electricity* e = new Electricity; 
+        // e->cellsTravelled.push_back(0); 
+        // delete e; 
 
         // * init objPointerHolder
         // ? Might get rid of name later since we now have number to intrect equivalencies 
@@ -432,8 +447,9 @@ public:
             };
 
             grid.describeGrid(7, 7, 150, 150, {80, 80}, gridMatrix);
-
             grid.fixWires();
+ 
+            // powerSystem.createElectricity({100, 100}, 1.f, grid.eachRectHeight / 10 ); // * rect radius is arbitrary idk what to put 
 
         }
     }
@@ -491,6 +507,7 @@ public:
                 if (!mouseHeld) {
                     if (grid.checkIfLeverClick(mousePosView)) {
                         grid.toggleLever(); 
+                        grid.sendElectricityFromLever(powerSystem.Electricity, 1.f, grid.eachRectHeight / 10 ); // elecitricty radius is arbitrary idk 
 
                         mouseHeld = true; 
                     }
@@ -503,6 +520,10 @@ public:
         }
     }
 
+    void moveElectricity() {
+        // * iterates through all the orbs and moves them in the direction they're supposed to go and once they hit the center of a cell, they're deleted a new one spawns if applicable 
+    }
+ 
     void makeText(std::string textName, std::string fontDir, float charSize, RGB fillColor, std::string textPrinted, float x, float y) {
         sf::Text text;
         font.loadFromFile("./graphics/fonts/Orbitron/Orbitron-VariableFont_wght.ttf");
@@ -562,6 +583,10 @@ public:
             window->draw(t.sprite); 
         }  
 
+        for (ElectricityOrb &t : powerSystem.Electricity ) {
+            window->draw(t.ElectricityOrb);
+        }
+
         // then render text 
         for (EntityandName<sf::Text> &t : textHolder) {
             window->draw(t.entity); 
@@ -580,6 +605,8 @@ public:
         spriteHolder.shrink_to_fit(); 
         grid.gridRectangleHolder.clear(); 
         grid.gridRectangleHolder.shrink_to_fit(); 
+        powerSystem.Electricity.clear();
+        powerSystem.Electricity.shrink_to_fit();
         initObjects(); 
 
     }
