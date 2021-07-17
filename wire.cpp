@@ -6,9 +6,18 @@
 #include <iostream>
 #include <vector>
 #include <sstream>
+#include <cmath>
+#include <cstdlib>
+#include <ctime>
+#include <algorithm>
 #include "objectSpriteRectList.hpp"
 
-int width = 1200, height = 1200, frameRate = 30;
+// * 0 = up, 1 = down, 2 = left, 3 = right
+namespace Direction_Spaces {
+    int up = 0, down = 1, left = 2, right = 3;
+}; 
+
+int width = 1200, height = 1200, frameRate = 30, electricitySpeed = 5, electricityOrbLifeSpan = 3;
 float frameNumber = 0.f;
 typedef short int it_;
 struct numTime { int num; float time; }; 
@@ -79,10 +88,18 @@ struct Direction {
     bool up, down, left, right; 
 }; 
 
+struct CellNums {
+    int up = -1, down = -1, left = -1, right = -1;
+};
+
 struct ElectricityOrb {
     sf::CircleShape ElectricityOrb; 
+    int direction; // * 0 = up, 1 = down, 2 = left, 3 = right, 4 = none, 5 = auto 
+    XY destination;  
+    int speed; 
+    int destinationCellNumber; 
+    int originCellNumber;
     std::vector<int> cellsTravelled; 
-    float speed; 
 };
 
 class Grid {
@@ -90,6 +107,7 @@ private:
     int leverIndex = -1; 
     XY leverPosition = {-1, -1}; // * if correct, it'd be the top left of the cell 
     bool leverState = false; // false = off, true = on 
+    int nonEmptyCellCount = 0; 
 public: 
     std::vector<rectangleForGrid> gridRectangleHolder; 
     int gridRows, gridColumns; 
@@ -121,6 +139,7 @@ public:
                 leverIndex = i;  
                 leverPosition = {xPos, yPos}; 
             }
+            if (gridMatrix[i] != 16) nonEmptyCellCount++; 
              // ! Put in sprite position and scaling  (given w / local bound w) 
              sprite.setTextureRect(  objPointHolder[ gridMatrix[i] ].rect ); 
 
@@ -174,13 +193,31 @@ public:
         else if ( (index+1) % (gridRows) == 0) direction.right = false; 
         return direction; 
     }
-    Direction checkForNonEmpty(Direction direction) {
-        if (direction.up) if (gridMatrix[leverIndex - gridRows] == 16) direction.up = false; 
-        if (direction.down) if (gridMatrix[leverIndex + gridRows] == 16) direction.down = false;                    
-        if (direction.left) if (gridMatrix[leverIndex - 1] == 16) direction.left = false; 
-        if (direction.right) if (gridMatrix[leverIndex + 1] == 16) direction.right = false;  
+    Direction checkForNonEmpty(Direction direction, int index) {
+        if (direction.up) if (gridMatrix[index - gridRows] == 16 || gridMatrix[index - gridRows] == 11 || gridMatrix[index - gridRows] == 10) direction.up = false; 
+
+        if (direction.down) if (gridMatrix[index + gridRows] == 16 || gridMatrix[index + gridRows] == 11 || gridMatrix[index + gridRows] == 10) direction.down = false;                    
+
+        if (direction.left) if (gridMatrix[index - 1] == 16 || gridMatrix[index - 1] == 11 || gridMatrix[index - 1] == 10) direction.left = false; 
+        
+        if (direction.right) if (gridMatrix[index + 1] == 16 || gridMatrix[index + 1] == 11 || gridMatrix[index + 1] == 10) direction.right = false;  
         return direction; 
 
+    }
+
+    CellNums cellNums(Direction direction, int index) {
+        
+        CellNums cellNums; 
+
+        if (direction.up) if (gridMatrix[index - gridRows] != 16 && gridMatrix[index - gridRows] != 11 && gridMatrix[index - gridRows] != 10) cellNums.up = index - gridRows;
+
+        if (direction.down) if (gridMatrix[index + gridRows] != 16 && gridMatrix[index + gridRows] != 11 && gridMatrix[index + gridRows] != 10) cellNums.down = index + gridRows;                  
+
+        if (direction.left) if (gridMatrix[index - 1] != 16 && gridMatrix[index - 1] != 11 && gridMatrix[index - 1] != 10) cellNums.left = index - 1;
+        
+        if (direction.right) if (gridMatrix[index + 1] != 16 && gridMatrix[index + 1] != 11 && gridMatrix[index + 1] != 10) cellNums.right = index + 1;
+
+        return cellNums; 
     }
 
     void fixWires() {
@@ -272,7 +309,7 @@ public:
                 
                 if (howmany == 3) {
                     changeIntRectOfSprite(i, wire_3_way); 
-                    if (down && right && up) rotateSprite(i, 90);
+                    if (down && right && up) rotateSprite(i, -90); // ! not sure if these are properly rotated 
                     else if (right && up && left) rotateSprite(i, 180);
                     else if (up && right && down) rotateSprite(i, 270); 
                     else if (up && left && down) rotateSprite(i, 90);
@@ -319,38 +356,162 @@ public:
         }
     }
 
-    void sendElectricityFromLever(std::vector<ElectricityOrb> &electricity, float eSpeed, float radius) {
+    bool isLeverOn() {
+        return leverState; 
+    }
+
+    void sendElectricityFromLever(std::vector<ElectricityOrb> &electricity, int eSpeed, float radius) { // * rework this to just be a general one 
         sf::CircleShape circ; 
         std::vector<int> cellsTravelled; 
         circ.setPosition(sf::Vector2f(leverPosition.X + eachRectWidth / 2, leverPosition.Y + eachRectHeight / 2)); // adding eachrect... makes it go to the middle of the cell 
         circ.setFillColor(sf::Color(255, 255, 0)); 
         circ.setRadius(radius); 
 
-        electricity.push_back({circ, cellsTravelled, eSpeed});
-        Direction direction = checkForNonEmpty(checkDirection(leverIndex)); // tells us where to send the electricity 
-        
-        
-        
+        Direction direction = checkForNonEmpty(checkDirection(leverIndex), leverIndex); // tells us where to send the electricity 
+
+        if (direction.up) {
+            electricity.push_back({circ, Direction_Spaces::up, {circ.getPosition().x , circ.getPosition().y - eachRectHeight} , eSpeed, leverIndex - gridRows, leverIndex, cellsTravelled});
+        }
+
+        if (direction.down) {
+            electricity.push_back({circ, Direction_Spaces::down, {circ.getPosition().x , circ.getPosition().y + eachRectHeight} , eSpeed, leverIndex + gridRows, leverIndex, cellsTravelled});
+        }
+
+        if (direction.left) {
+            electricity.push_back({circ, Direction_Spaces::left, {circ.getPosition().x - eachRectWidth , circ.getPosition().y} , eSpeed, leverIndex - 1, leverIndex, cellsTravelled});
+        }
+
+        if (direction.right) {
+            electricity.push_back({circ, Direction_Spaces::right, {circ.getPosition().x + eachRectWidth, circ.getPosition().y} , eSpeed, leverIndex + 1, leverIndex, cellsTravelled});
+        }
+
+    }
+
+    void receiveElectricity(ElectricityOrb& eOrb, std::vector<ElectricityOrb>& Electricity, it_ eOrbIndex) {
+        // * this is where the magic happens     (github copilot suggestion)
+
+        // * LIMTER B : limits # of orbs by how many objects there are 
+        bool makeNewOrb = true; 
+        if (Electricity.size() >= nonEmptyCellCount) makeNewOrb = false; 
+
+        bool removeOrb = false;
+        eOrb.cellsTravelled.push_back(eOrb.originCellNumber); 
+        if (eOrb.cellsTravelled.size() == electricityOrbLifeSpan) removeOrb = true; 
+
+        // std::cout << "ORIGIN: " << eOrb.originCellNumber << " DESTINATION: " << eOrb.destinationCellNumber << " DIRECTION: " << eOrb.direction << std::endl;
+        Direction direction = checkForNonEmpty(checkDirection(eOrb.destinationCellNumber), eOrb.destinationCellNumber); // still being used to tell where the electricity will be going 
+
+        if (eOrb.direction == Direction_Spaces::up) {
+            direction.down = false; 
+        } else if (eOrb.direction == Direction_Spaces::down) {
+            direction.up = false;
+        } else if (eOrb.direction == Direction_Spaces::left) {
+            direction.right = false;
+        } else if (eOrb.direction == Direction_Spaces::right) {
+            direction.left = false;
+        }
+
+        // * LIMITER: ELECTRICITY WONT GO TO A CELL IT HAS ALREADY BEEN TO 
+
+        int index = eOrb.destinationCellNumber; 
+
+        if (std::count(eOrb.cellsTravelled.begin(), eOrb.cellsTravelled.end(), index - gridRows )) { // checks if vec contains num 
+            direction.up = false;
+        }
+        if (std::count(eOrb.cellsTravelled.begin(), eOrb.cellsTravelled.end(), index + gridRows)) { 
+            direction.down = false;
+        }
+        if (std::count(eOrb.cellsTravelled.begin(), eOrb.cellsTravelled.end(), index - 1)) { 
+            direction.left = false;
+        }
+        if (std::count(eOrb.cellsTravelled.begin(), eOrb.cellsTravelled.end(), index + 1)) {
+            direction.right = false;
+        }
+        // * another limter idea is to have all cells have max wire passing limit, like if 3 orbs passed a cell, an orb can no longer go on that wire until the lever is flicked again
+
+        //  std::cout << "UP: " << direction.up << " DOWN: " << direction.down << " LEFT: " << direction.left << " RIGHT: " << direction.right << std::endl;
+
+         ElectricityOrb cOrb = eOrb; // copy of eOrb because
+
+        bool eOrbCreated = false; 
+
+        if (direction.up) {
+            eOrb.direction = Direction_Spaces::up;
+            eOrb.destination = {cOrb.ElectricityOrb.getPosition().x , cOrb.ElectricityOrb.getPosition().y - eachRectHeight}; 
+            eOrb.originCellNumber = cOrb.destinationCellNumber;
+            eOrb.destinationCellNumber = cOrb.destinationCellNumber - gridRows;
+            eOrbCreated = true; 
+        }
+
+        // default circ 
+        sf::CircleShape circ; 
+        circ.setPosition(sf::Vector2f(cOrb.ElectricityOrb.getPosition().x , cOrb.ElectricityOrb.getPosition().y));
+        circ.setFillColor(sf::Color(rand()%255, rand()%255, 255)); 
+        circ.setRadius(cOrb.ElectricityOrb.getRadius()); 
+
+        if (direction.down) {
+
+            if (!eOrbCreated) {
+                eOrb.direction = Direction_Spaces::down;
+                eOrb.destination = {eOrb.ElectricityOrb.getPosition().x , eOrb.ElectricityOrb.getPosition().y + eachRectHeight}; 
+                eOrb.originCellNumber = eOrb.destinationCellNumber;
+                eOrb.destinationCellNumber = eOrb.destinationCellNumber + gridRows;
+                eOrbCreated = true;
+            } else if (eOrbCreated && makeNewOrb) {
+                
+
+                Electricity.push_back({circ, Direction_Spaces::down, {circ.getPosition().x , circ.getPosition().y + eachRectHeight} , cOrb.speed, cOrb.destinationCellNumber + gridRows,  cOrb.destinationCellNumber});
+            }
+        }
+
+        if (direction.left) {
+            if (!eOrbCreated) {
+                eOrb.direction = Direction_Spaces::left;
+                eOrb.destination = {eOrb.ElectricityOrb.getPosition().x - eachRectWidth , eOrb.ElectricityOrb.getPosition().y}; 
+                eOrb.originCellNumber = eOrb.destinationCellNumber;
+                eOrb.destinationCellNumber = eOrb.originCellNumber - 1;
+                eOrbCreated = true;
+            } else if (eOrbCreated && makeNewOrb) {
+
+                Electricity.push_back({circ, Direction_Spaces::left, {circ.getPosition().x - eachRectWidth, circ.getPosition().y } , cOrb.speed, cOrb.destinationCellNumber - 1, cOrb.destinationCellNumber});
+            }
+        }
+
+        if (direction.right) {
+            if (!eOrbCreated) {
+                eOrb.direction = Direction_Spaces::right;
+                eOrb.destination = {eOrb.ElectricityOrb.getPosition().x + eachRectWidth , eOrb.ElectricityOrb.getPosition().y}; 
+                eOrb.originCellNumber = eOrb.destinationCellNumber;
+                eOrb.destinationCellNumber = eOrb.originCellNumber + 1;
+                eOrbCreated = true; 
+            } else if (eOrbCreated && makeNewOrb) { 
+
+                Electricity.push_back({circ, Direction_Spaces::right, {circ.getPosition().x + eachRectWidth, circ.getPosition().y } , cOrb.speed, cOrb.destinationCellNumber + 1, cOrb.destinationCellNumber});
+            }
+        }
+
+        if (removeOrb || !eOrbCreated) Electricity.erase(Electricity.begin() + eOrbIndex);
     }
 };
 
 
 class PowerSystem {
 private:
-        
+
 public:
     // * idea: only use one electricity instance and just have vector that handles the deletion of the orbs 
     std::vector<ElectricityOrb> Electricity; 
     
     // create a class of pointer orb objects
-    void createElectricity(XY position, float eSpeed, float radius) {
+    void createElectricity(XY position, XY destination, int direction, int speed, float radius) {
         sf::CircleShape circ; 
         std::vector<int> cellsTravelled; 
         circ.setPosition(sf::Vector2f(position.X, position.Y)); 
         circ.setFillColor(sf::Color(255, 255, 0)); 
         circ.setRadius(radius); 
 
-        Electricity.push_back({circ, cellsTravelled, eSpeed}); 
+        Electricity.push_back({circ, direction, destination , speed}); 
+       
     } 
 };
 
@@ -373,6 +534,7 @@ private:
     GAME_STATES GAME_STATE = debug; 
 public:
     Game() {
+        srand(time(0)); 
         window = nullptr; 
         window = new sf::RenderWindow(sf::VideoMode(width, height), "Wire Desire", sf::Style::Close | sf::Style::Titlebar); 
         window->setFramerateLimit(frameRate);
@@ -439,17 +601,17 @@ public:
             std::vector<int> gridMatrix = {
                 16, 16, 16, 16, 16, 16, 16,
                 16, 16, 16, 16, 16, 16, 16,
-                16, 11, 01, 01, 01,  8, 16,
                 16, 16, 16, 16, 16, 16, 16,
-                16, 16, 16, 16, 16, 16, 16,
-                16, 16, 16, 16, 16, 16, 16,
+                16, 11, 01, 01, 01, 01,  8,
+                16, 16, 01, 01, 01, 01, 01,
+                16, 16, 16, 16, 16, 01, 01,
                 16, 16, 16, 16, 16, 16, 16,
             };
 
             grid.describeGrid(7, 7, 150, 150, {80, 80}, gridMatrix);
             grid.fixWires();
  
-            // powerSystem.createElectricity({100, 100}, 1.f, grid.eachRectHeight / 10 ); // * rect radius is arbitrary idk what to put 
+            // powerSystem.createElectricity({100, 100}, 1.f, grid.eachRectHeight / 10 ); // * rect radius is arbitrary idk what to put  
 
         }
     }
@@ -506,8 +668,10 @@ public:
             if (sf::Mouse::isButtonPressed(sf::Mouse::Left)) {
                 if (!mouseHeld) {
                     if (grid.checkIfLeverClick(mousePosView)) {
-                        grid.toggleLever(); 
-                        grid.sendElectricityFromLever(powerSystem.Electricity, 1.f, grid.eachRectHeight / 10 ); // elecitricty radius is arbitrary idk 
+                        grid.toggleLever();
+
+                        if (grid.isLeverOn())
+                        grid.sendElectricityFromLever(powerSystem.Electricity, electricitySpeed, grid.eachRectHeight / 10 ); // elecitricty radius is arbitrary idk 
 
                         mouseHeld = true; 
                     }
@@ -522,6 +686,61 @@ public:
 
     void moveElectricity() {
         // * iterates through all the orbs and moves them in the direction they're supposed to go and once they hit the center of a cell, they're deleted a new one spawns if applicable 
+        it_ iterator = 0; // already spent the making this a for in loop dont want to redo it to a for i 
+        for (ElectricityOrb &t : powerSystem.Electricity) {
+            int distance = abs( (t.ElectricityOrb.getPosition().x + t.ElectricityOrb.getPosition().y) - (t.destination.X + t.destination.Y)); // manhattan distance, not euclidean  
+
+            bool destinationXAxisReached = (distance <= electricitySpeed);
+            bool destinationYAxisReached = (distance <= electricitySpeed); // not sure if the minium distance should just be the electricity speed. i think it's good tho 
+
+            bool movedInXAxis = false; 
+            static int doDelete = 0; // * this var is here so there's a bit of delay because when multiple electricity orbs are deleted at the same time, compiler be like "LOL *starts beat boxing*" 
+            
+            if (destinationXAxisReached && destinationYAxisReached) {
+                // if (doDelete % 3 == 0) {
+
+                    // int originCellNumber = t.originCellNumber, destinationCellNumber = t.destinationCellNumber, direction = t.direction;
+                    
+                    // * NOT GONNA DELETE YET, DELETE ONCE TRAVELLED 3 CELLS 
+                    //  powerSystem.Electricity.erase(powerSystem.Electricity.begin() + iterator); 
+                    // iterator--; // ! potential source of bug, really noticable because u will get Abort Trap error or something like that. this is here because (wordy explanation as to why seg fault happens) and doing this hopefully prevents it
+                    // * dont need to do deleting here or slowing it down as it's handled elsewhere 
+
+
+                    grid.receiveElectricity(t, powerSystem.Electricity, iterator);
+                    
+
+                // }
+                doDelete++; 
+                iterator++; 
+                continue; 
+                
+            }
+
+            if (!destinationXAxisReached) {
+                // for x axis, it's only 2 (left), 3 (right)
+                if (t.direction == 2) { // * left 
+                    t.ElectricityOrb.move(-1 * t.speed, 0);
+                    movedInXAxis = true;
+
+                } else if (t.direction == 3) { // * right
+                    t.ElectricityOrb.move(1 * t.speed, 0);
+                    movedInXAxis = true;
+                } 
+            }
+
+            if (!destinationYAxisReached && !movedInXAxis) {
+                // for y axis, it's only 0 (up), 1 (down)
+                if (t.direction == 0) { // * up
+                    t.ElectricityOrb.move(0, -1 * t.speed);
+                } 
+                else if (t.direction == 1) { // * down
+                    t.ElectricityOrb.move(0, 1 * t.speed);
+                }
+            }
+            iterator++; 
+
+        }
     }
  
     void makeText(std::string textName, std::string fontDir, float charSize, RGB fillColor, std::string textPrinted, float x, float y) {
@@ -622,6 +841,7 @@ int main() {
     while (game.isRunning()) {
         game.pollEvents();
         game.updateObjects(); // * also handling user events 
+        game.moveElectricity(); 
         game.render(); 
     }
     game.onGameEnd(); 
