@@ -17,8 +17,7 @@ namespace Direction_Spaces {
     int up = 0, down = 1, left = 2, right = 3, none = 4;
 }; 
 
-int width = 1200, height = 1200, frameRate = 30, electricitySpeed = 5;
-const int electricityOrbLifeSpan = 3;
+int width = 1200, height = 1200, frameRate = 30, electricitySpeed = 5, electricityOrbLifeSpan = 3;
 float frameNumber = 0.f;
 typedef short int it_;
 struct numTime { int num; float time; }; 
@@ -394,7 +393,7 @@ public:
         std::cout << "****START CHECKFORIMPOR******\n"; 
         std::cout << "index: " << index << " direction: " << directionAllowed << std::endl;
         std::cout << "ORB INFO" << std::endl; 
-        std::cout << "CELLS TRAVELED SIZE: " << eOrb.cellsTravelled.size() <<" \nDESTINATION: " << eOrb.destination.X << " " << eOrb.destination.Y << " DIRECTION: " << eOrb.direction << "\n DEST, ORG " << eOrb.destinationCellNumber << " " << eOrb.originCellNumber << std::endl;
+        std::cout << "CELLS TRAVELED SIZE: " << eOrb.cellsTravelled.size() << " \nDESTINATION: " << eOrb.destination.X << " " << eOrb.destination.Y << " DIRECTION: " << eOrb.direction << "\n DEST, ORG " << eOrb.destinationCellNumber << " " << eOrb.originCellNumber << std::endl;
         std::cout << "GRID MATRIX= " << gridMatrix[index] << std::endl;
         for (int i = 0; i < Electricity.size(); i++) {
             std::cout << "ELECTRICITY FOR LOOP"; 
@@ -411,7 +410,6 @@ public:
             changeIntRectOfSprite(index, activated_winning_block); 
         } else if (gridMatrix[index] == 4) { // power extender
             eOrb.cellsTravelled.clear(); 
-
             eOrb.speed = electricitySpeed / 1.5; 
         } else if (gridMatrix[index] == 7) { // power dispenser 
             int objIndex = -1;
@@ -430,9 +428,8 @@ public:
             
             std::cout << "CELLS TRAVELLED\n";
              std::vector<int> cellsTravelled = {identifier};
-             cellsTravelled.reserve(5); 
             identifier--; 
-            std::cout << "CELLS TRAVELLED 0TH = " << identifier++ << std::endl;
+            std::cout << "CELLS TRAVELLED = " << identifier++ << std::endl;
 
             if (objectsWithOrientation[objIndex].objIsFacing == Direction_Spaces::up) {
                 XY destination = {eOrb.ElectricityOrb.getPosition().x, eOrb.ElectricityOrb.getPosition().y - height}; 
@@ -561,12 +558,10 @@ public:
         // handle neg index electricity ("rogue, fast electricity")
         if (eOrb.cellsTravelled.size() > 0) {
             // ! CODE AT BAD STATE, GETTING LLVM ERROR: out of memory ERRORS 
-            std::cout << "CELLS TRAVELLED IS GREATER THAN 0 AND 0TH ELEMENT = ";
-            std::cout << eOrb.cellsTravelled[0] << std::endl;
+            std::cout << "CELLS TRAVELLED IS GREATER THAN 0" << std::endl;
             if (eOrb.cellsTravelled[0] < 0) {
                 std::cout << "EORB CELLSTRAVLLED LESS THAN 0" << std::endl;
                 checkCellForImportantObjects(eOrb.destinationCellNumber, Direction_Spaces::none, eOrb, Electricity);
-                std::cout << "DONE CHECKING FOR IMPORTANT OBJECTS" << std::endl;
 
                 for (int i = 0; i < Electricity.size(); i++) {
                     if (Electricity[i].cellsTravelled.size() > 0) {
@@ -698,29 +693,7 @@ public:
 
         if (removeOrb || !eOrbCreated)  {
             // checkCellForImportantObjects(index, Direction_Spaces::none, eOrb, Electricity); 
-            std::cout << "REMOVE ORB, ORBCREATED = " << removeOrb << " " << eOrbCreated << "AND ORBINDEX = " << eOrbIndex << std::endl;
-            std::cout << "NOW LOGGING ELECITRICITIES\n";
-
-            int CorrectIndex = -1; 
-            it_ iterator = 0; 
-            for (ElectricityOrb &t : Electricity) {
-                std::cout << t.direction << std::endl;
-                if (
-                    t.originCellNumber == eOrb.originCellNumber &&
-                    t.destinationCellNumber == eOrb.destinationCellNumber &&
-                    t.direction == eOrb.direction && 
-                    t.destination.X == eOrb.destination.X &&
-                    t.destination.Y == eOrb.destination.Y && 
-                    t.ElectricityOrb.getPosition().x == eOrb.ElectricityOrb.getPosition().x &&
-                    t.ElectricityOrb.getPosition().y == eOrb.ElectricityOrb.getPosition().y
-
-                ) {
-                    CorrectIndex = iterator;
-                    break; 
-                }
-                iterator++;
-            }
-            Electricity.erase(Electricity.begin() + CorrectIndex); // ! Seg fault causer maybe ? ?
+            Electricity.erase(Electricity.begin() + eOrbIndex);
         }
     }
 };
