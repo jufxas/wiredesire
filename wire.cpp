@@ -18,6 +18,7 @@ namespace Direction_Spaces {
 }; 
 
 int width = 1200, height = 1200, frameRate = 30, electricitySpeed = 5;
+bool debugClog = false; 
 const int electricityOrbLifeSpan = 3;
 float frameNumber = 0.f;
 typedef short int it_;
@@ -219,6 +220,33 @@ public:
 
     }
 
+    Direction electricityCheckForNonEmpty(Direction direction, int index) {
+        std::vector<int> validObjects = {0, 1, 2, 3, 4, 6, 7, 8, 17}; // wires, detecotr, dispenser 
+        std::vector<int> wires = {0, 1, 2, 3, 4, 17};
+        if ( !std::count(wires.begin(), wires.end(), gridMatrix[index])) {
+            Direction d = {false, false, false, false}; 
+            return d; 
+        }
+
+        // if (direction.up) if (!std::count(validObjects.begin(), validObjects.end(), gridMatrix[index - gridRows])) direction.up = false;
+
+        // if (direction.down) if (!std::count(validObjects.begin(), validObjects.end(), gridMatrix[index + gridRows])) direction.down = false;
+
+        // if (direction.left) if (!std::count(validObjects.begin(), validObjects.end(), gridMatrix[index - 1])) direction.left = false;
+
+        // if (direction.right) if (!std::count(validObjects.begin(), validObjects.end(), gridMatrix[index + 1])) direction.right = false;
+        if (direction.up) if (gridMatrix[index - gridRows] == 16 || gridMatrix[index - gridRows] == 11 || gridMatrix[index - gridRows] == 10) direction.up = false; 
+
+        if (direction.down) if (gridMatrix[index + gridRows] == 16 || gridMatrix[index + gridRows] == 11 || gridMatrix[index + gridRows] == 10) direction.down = false;                    
+
+        if (direction.left) if (gridMatrix[index - 1] == 16 || gridMatrix[index - 1] == 11 || gridMatrix[index - 1] == 10) direction.left = false; 
+        
+        if (direction.right) if (gridMatrix[index + 1] == 16 || gridMatrix[index + 1] == 11 || gridMatrix[index + 1] == 10) direction.right = false;  
+
+        
+        return direction;  
+    }
+
     void fixWires() {
         for (int i = 0; i < gridRectangleHolder.size(); i++) {
             // * How the logic works because my variable names are kinda bad 
@@ -350,7 +378,7 @@ public:
             }
         }
         if (!correctlyTargetingObjectWithOrientation) {
-            std::cout << "didnt happen 0001" << std::endl;
+            if (debugClog) std::cout << "didnt happen 0001" << std::endl;
             return; 
         }
 
@@ -362,10 +390,10 @@ public:
             rotateSprite(objectsWithOrientation[objIndex].cellNumber , 0);
 
         } else if (objectsWithOrientation[objIndex].objIsFacing == Direction_Spaces::left) {
-            rotateSprite(objectsWithOrientation[objIndex].cellNumber , -90);
+            rotateSprite(objectsWithOrientation[objIndex].cellNumber , 90);
 
         } else if (objectsWithOrientation[objIndex].objIsFacing == Direction_Spaces::right) {
-            rotateSprite(objectsWithOrientation[objIndex].cellNumber , 90);
+            rotateSprite(objectsWithOrientation[objIndex].cellNumber , -90);
 
         }
     }
@@ -391,16 +419,20 @@ public:
     }
 
     void checkCellForImportantObjects(int index, int directionAllowed, ElectricityOrb &eOrb, std::vector<ElectricityOrb>& Electricity) {
+        if (debugClog) {
         std::cout << "****START CHECKFORIMPOR******\n"; 
         std::cout << "index: " << index << " direction: " << directionAllowed << std::endl;
         std::cout << "ORB INFO" << std::endl; 
         std::cout << "CELLS TRAVELED SIZE: " << eOrb.cellsTravelled.size() <<" \nDESTINATION: " << eOrb.destination.X << " " << eOrb.destination.Y << " DIRECTION: " << eOrb.direction << "\n DEST, ORG " << eOrb.destinationCellNumber << " " << eOrb.originCellNumber << std::endl;
         std::cout << "GRID MATRIX= " << gridMatrix[index] << std::endl;
+        
         for (int i = 0; i < Electricity.size(); i++) {
             std::cout << "ELECTRICITY FOR LOOP"; 
             std::cout << "ORG, DEST, DIRE " << Electricity[i].originCellNumber << " " << Electricity[i].destinationCellNumber << " " << Electricity[i].direction << std::endl;
         }
-        std::cout << "****END CHECKFORIMPOR******\n"; 
+        
+        std::cout << "****END CHECKFORIMPOR******\n";
+        } 
 
         if (eOrb.speed != electricitySpeed) eOrb.speed = electricitySpeed;
 
@@ -428,11 +460,11 @@ public:
             circ.setFillColor(sf::Color(rand()%255, rand()%255, 255)); 
             circ.setRadius(eOrb.ElectricityOrb.getRadius());
             
-            std::cout << "CELLS TRAVELLED\n";
+            if (debugClog) std::cout << "CELLS TRAVELLED\n";
              std::vector<int> cellsTravelled = {identifier};
-             cellsTravelled.reserve(5); 
+              cellsTravelled.reserve(electricityOrbLifeSpan);
             identifier--; 
-            std::cout << "CELLS TRAVELLED 0TH = " << identifier++ << std::endl;
+            if (debugClog) std::cout << "CELLS TRAVELLED 0TH = " << identifier++ << std::endl;
 
             if (objectsWithOrientation[objIndex].objIsFacing == Direction_Spaces::up) {
                 XY destination = {eOrb.ElectricityOrb.getPosition().x, eOrb.ElectricityOrb.getPosition().y - height}; 
@@ -447,9 +479,11 @@ public:
 
                     iterator++; 
                 }
+                if (debugClog) {
                  std::cout << "****START IF OBJSWITHORIENTATION[OBJ******\n"; 
                  std::cout << "DEST, INDEX :" << destinationCellNumber << " " << index << std::endl; 
                  std::cout << "****END IF OBJSWITHORIENTATION[OBJ******\n"; 
+                }
                 Electricity.push_back({circ, Direction_Spaces::up, destination, electricitySpeed * 2, destinationCellNumber , index, cellsTravelled});
 
             } else if (objectsWithOrientation[objIndex].objIsFacing == Direction_Spaces::down) {
@@ -466,6 +500,7 @@ public:
 
                     iterator++; 
                 }
+                if (debugClog)
                 std::cout << "DESTINATION: " << destination.X << " " << destination.Y << std::endl;
                 
                 Electricity.push_back({circ, Direction_Spaces::down, destination, electricitySpeed * 2, destinationCellNumber, index, cellsTravelled});
@@ -507,7 +542,7 @@ public:
 
         }   
 
-        std::cout << "DIRECTIONA LLOWED START" << std::endl;
+        if (debugClog) std::cout << "DIRECTIONA LLOWED START" << std::endl;
         if (directionAllowed == Direction_Spaces::up) {
             specialIndex = index - gridRows; 
 
@@ -520,12 +555,13 @@ public:
         } else if (directionAllowed == Direction_Spaces::right) { 
             specialIndex = index + 1;
         }
-        std::cout << "DIRECTIONA LLOWED END" << std::endl;
+        if (debugClog) std::cout << "DIRECTIONA LLOWED END" << std::endl;
     }
 
     void sendElectricityFromLever(std::vector<ElectricityOrb> &electricity, int eSpeed, float radius) { // * rework this to just be a general one 
         sf::CircleShape circ; 
         std::vector<int> cellsTravelled; 
+         cellsTravelled.reserve(electricityOrbLifeSpan);
         circ.setPosition(sf::Vector2f(leverPosition.X + eachRectWidth / 2, leverPosition.Y + eachRectHeight / 2)); // adding eachrect... makes it go to the middle of the cell 
         circ.setFillColor(sf::Color(255, 255, 0)); 
         circ.setRadius(radius); 
@@ -551,27 +587,31 @@ public:
     }
 
     void receiveElectricity(ElectricityOrb& eOrb, std::vector<ElectricityOrb>& Electricity, it_ eOrbIndex) {
+        if (debugClog) {
         std::cout << "****START RECEIVEELECTRIICTY******\n"; 
         std::cout << "CELLS TRAVELED SIZE: " << eOrb.cellsTravelled.size() << " \nDESTINATION: " << eOrb.destination.X << " " << eOrb.destination.Y << " DIRECTION: " << eOrb.direction << "\n DEST, ORG" << eOrb.destinationCellNumber << " " << eOrb.originCellNumber << " ORBINDEX: " << eOrbIndex << std::endl;
 
         // * LIMTER B : limits # of orbs by how many objects there are 
         std::cout << "got " << eOrb.destinationCellNumber <<std::endl; 
+        }
          bool removeOrb = false,  makeNewOrb = true; ;
 
         // handle neg index electricity ("rogue, fast electricity")
         if (eOrb.cellsTravelled.size() > 0) {
             // ! CODE AT BAD STATE, GETTING LLVM ERROR: out of memory ERRORS 
+            if (debugClog) {
             std::cout << "CELLS TRAVELLED IS GREATER THAN 0 AND 0TH ELEMENT = ";
             std::cout << eOrb.cellsTravelled[0] << std::endl;
+            }
             if (eOrb.cellsTravelled[0] < 0) {
-                std::cout << "EORB CELLSTRAVLLED LESS THAN 0" << std::endl;
+                if (debugClog) std::cout << "EORB CELLSTRAVLLED LESS THAN 0" << std::endl;
                 checkCellForImportantObjects(eOrb.destinationCellNumber, Direction_Spaces::none, eOrb, Electricity);
-                std::cout << "DONE CHECKING FOR IMPORTANT OBJECTS" << std::endl;
+                if (debugClog) std::cout << "DONE CHECKING FOR IMPORTANT OBJECTS" << std::endl;
 
                 for (int i = 0; i < Electricity.size(); i++) {
                     if (Electricity[i].cellsTravelled.size() > 0) {
                         if (Electricity[i].cellsTravelled[0] == eOrb.cellsTravelled[0]) {
-                            std::cout << "IDENTIFIED " << i << " TO BE DELETED" << std::endl;
+                            if (debugClog) std::cout << "IDENTIFIED " << i << " TO BE DELETED" << std::endl;
                             Electricity.erase(Electricity.begin() + i); 
                             return; // ! NOT SURE IF RETURN STATEMENT SHOULD BE USED HERE 
                         }
@@ -581,19 +621,22 @@ public:
             }
         }
         
-        std::cout << "E SIZE\n"; 
+        if (debugClog) std::cout << "E SIZE\n"; 
         if (Electricity.size() >= nonEmptyCellCount) makeNewOrb = false; 
-
+        if (debugClog) {
        std::cout << "EORB CELLSTRAVELED PUSHBACK\n"; 
        std::cout << "CELLS TRAVELLED SIZE IS " << eOrb.cellsTravelled.size() << std::endl;
-        eOrb.cellsTravelled.push_back(eOrb.originCellNumber);  // ! SEG FAULT CAUSER? 
-        std::cout << "PUSHED" << std::endl;
+        }
+        eOrb.cellsTravelled.push_back(eOrb.originCellNumber);  // ! SEG FAULT CAUSER? YES MOST LIKELY 
+        if (debugClog) std::cout << "PUSHED" << std::endl;
 
-        std::cout << "EORB CELLSTRAVELED SIZE\n"; 
+        if (debugClog) std::cout << "EORB CELLSTRAVELED SIZE\n"; 
         if (eOrb.cellsTravelled.size() == electricityOrbLifeSpan) removeOrb = true; 
 
+        if (debugClog) {
         std::cout << "ORIGIN: " << eOrb.originCellNumber << " DESTINATION: " << eOrb.destinationCellNumber << " DIRECTION: " << eOrb.direction << std::endl;
-        Direction direction = checkForNonEmpty(checkDirection(eOrb.destinationCellNumber), eOrb.destinationCellNumber); // still being used to tell where the electricity will be going 
+        }
+        Direction direction = electricityCheckForNonEmpty(checkDirection(eOrb.destinationCellNumber), eOrb.destinationCellNumber); // still being used to tell where the electricity will be going 
         int index = eOrb.destinationCellNumber; 
 
         if (eOrb.direction == Direction_Spaces::up) {
@@ -622,16 +665,20 @@ public:
         }
         // * another limter idea is to have all cells have max wire passing limit, like if 3 orbs passed a cell, an orb can no longer go on that wire until the lever is flicked again
 
+        if (debugClog)
          std::cout << "UP: " << direction.up << " DOWN: " << direction.down << " LEFT: " << direction.left << " RIGHT: " << direction.right << std::endl;
 
+         if (debugClog)
          std::cout << "ABOUT TO MAKE ORB COPY\n";
          ElectricityOrb cOrb = eOrb; // copy of eOrb because
+         if (debugClog)
          std::cout << "MADE ORB COPY\n";
 
         bool eOrbCreated = false; 
 
         if (direction.up) {
              // * check for important objects 
+             if (debugClog)
              std::cout << "CHECKPOINT BEFORE CHECKCELLFORIMPORTANT FOR DIRECTION UP\n";
              checkCellForImportantObjects(index, Direction_Spaces::up, eOrb, Electricity); 
              // * orb handling 
@@ -648,8 +695,10 @@ public:
         circ.setFillColor(sf::Color(rand()%255, rand()%255, 255)); 
         circ.setRadius(cOrb.ElectricityOrb.getRadius()); 
         std::vector<int> cellsTravelled; 
+        cellsTravelled.reserve(electricityOrbLifeSpan);
 
         if (direction.down) {
+            if (debugClog)
             std::cout << "CHECKPOINT BEFORE CHECKCELLFORIMPORTANT FOR DIRECTION DOWN\n";
             checkCellForImportantObjects(index, Direction_Spaces::down, eOrb, Electricity); // ! THIS MIGHT BE THE SEG FAULT CAUSER, JUST WHAT'S BEING PASSED INTO HERE 
 
@@ -667,7 +716,7 @@ public:
         }
 
         if (direction.left) {
-            // checkCellForImportantObjects(index, Direction_Spaces::left, eOrb, Electricity); 
+            checkCellForImportantObjects(index, Direction_Spaces::left, eOrb, Electricity); 
 
             if (!eOrbCreated) {
                 eOrb.direction = Direction_Spaces::left;
@@ -682,7 +731,7 @@ public:
         }
 
         if (direction.right) {
-            // checkCellForImportantObjects(index, Direction_Spaces::right, eOrb, Electricity); 
+            checkCellForImportantObjects(index, Direction_Spaces::right, eOrb, Electricity); 
 
             if (!eOrbCreated) {
                 eOrb.direction = Direction_Spaces::right;
@@ -697,14 +746,16 @@ public:
         }
 
         if (removeOrb || !eOrbCreated)  {
-            // checkCellForImportantObjects(index, Direction_Spaces::none, eOrb, Electricity); 
+            checkCellForImportantObjects(index, Direction_Spaces::none, eOrb, Electricity); 
+            if (debugClog) {
             std::cout << "REMOVE ORB, ORBCREATED = " << removeOrb << " " << eOrbCreated << "AND ORBINDEX = " << eOrbIndex << std::endl;
             std::cout << "NOW LOGGING ELECITRICITIES\n";
+            }
 
             int CorrectIndex = -1; 
             it_ iterator = 0; 
             for (ElectricityOrb &t : Electricity) {
-                std::cout << t.direction << std::endl;
+                if (debugClog) std::cout << t.direction << std::endl;
                 if (
                     t.originCellNumber == eOrb.originCellNumber &&
                     t.destinationCellNumber == eOrb.destinationCellNumber &&
@@ -833,17 +884,18 @@ public:
                 16, 16, 16, 16, 16, 16, 16,
 16, 16, 16, 16, 16, 16, 16,
 16, 11, 01, 04, 01,  8, 16,
+05, 16,  7, 16, 16, 16, 05,
 16, 16,  7, 16, 16, 16, 16,
-16, 16,  6, 16, 16, 16, 16,
 16, 16, 16, 16, 16, 16, 16,
 16, 16,  6, 16, 16, 16, 16,
             };
 
             grid.describeGrid(7, 7, 150, 150, {80, 80}, gridMatrix);
             grid.fixWires();
-            grid.sendElectricityFromLever(powerSystem.Electricity, electricitySpeed, grid.eachRectHeight / 10 );
+            // grid.sendElectricityFromLever(powerSystem.Electricity, electricitySpeed, grid.eachRectHeight / 10 );
  
             // powerSystem.createElectricity({100, 100}, 1.f, grid.eachRectHeight / 10 ); // * rect radius is arbitrary idk what to put  
+            grid.changeWhatObjectIsFacing(23, Direction_Spaces::right);  
 
         }
     }
@@ -931,7 +983,7 @@ public:
             
             if (destinationXAxisReached && destinationYAxisReached) {
                 // if (doDelete % 3 == 0) {
-                    std::cout << "DEST X Y HIT\n"; 
+                    if (debugClog) std::cout << "DEST X Y HIT\n"; 
 
                     // int originCellNumber = t.originCellNumber, destinationCellNumber = t.destinationCellNumber, direction = t.direction;
                     
@@ -940,8 +992,8 @@ public:
                     // iterator--; // ! potential source of bug, really noticable because u will get Abort Trap error or something like that. this is here because (wordy explanation as to why seg fault happens) and doing this hopefully prevents it
                     // * dont need to do deleting here or slowing it down as it's handled elsewhere 
 
-                    std::cout << "GIVING GRID.RECEVIE ITERATOR= " << iterator << std::endl;
-                    grid.receiveElectricity(t, powerSystem.Electricity, iterator); // ! THIS MIGHT BE THE SEG FAULT CAUSER 
+                    if (debugClog) std::cout << "GIVING GRID.RECEVIE ITERATOR= " << iterator << std::endl;
+                    grid.receiveElectricity(t, powerSystem.Electricity, iterator); // ! THIS MIGHT BE THE SEG FAULT CAUSER ;;   considering removing iterator as it's not accurate somehow 
                     
 
                 // }
